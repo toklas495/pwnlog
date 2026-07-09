@@ -1,0 +1,30 @@
+{
+  "name": "default",
+  "description": "Haddix-style recon tree — passive/active recon, per-host discovery, vuln-hunting buckets, findings, deadends, report.",
+  "folders": [
+    "01-recon/passive/subdomains",
+    "01-recon/passive/google_dorks",
+    "01-recon/passive/github_dorks",
+    "01-recon/active",
+    "02-hosts",
+    "03-discovery/endpoints",
+    "03-discovery/js_files",
+    "03-discovery/directories",
+    "03-discovery/params",
+    "03-discovery/apis",
+    "04-vuln-hunting/auth",
+    "04-vuln-hunting/idor",
+    "04-vuln-hunting/xss",
+    "04-vuln-hunting/sqli",
+    "04-vuln-hunting/ssrf",
+    "04-vuln-hunting/lfi",
+    "04-vuln-hunting/business-logic",
+    "04-vuln-hunting/misc",
+    "05-findings",
+    "06-deadends",
+    "07-report"
+  ],
+  "host_dir": "02-hosts",
+  "findings_dir": "05-findings",
+  "finding_template": "# 000 — Finding Title\n\n**Category:**\n**Severity:**\n**Asset:**\n**Status:** Draft / Confirmed / Reported\n\n## Summary\n\n\n## Steps to reproduce\n1.\n\n## Evidence\n\n\n## Impact\n\n\n## Linked raw entries\n(timeline.json entry IDs)\n"
+}

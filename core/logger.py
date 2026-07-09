@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from core.project import get_active_project
+from core.importer import get_recent_import, mark_import_consumed
 from ui.theme import CATEGORIES
 
 # ── entry structure ──────────────────────────────────────────
@@ -12,6 +13,7 @@ def build_entry(
     category      : str,
     screenshot    : Optional[str] = None,
     window_title  : Optional[str] = None,
+    linked_file   : Optional[str] = None,
 ) -> dict:
     return {
         "id"           : _generate_id(),
@@ -20,6 +22,7 @@ def build_entry(
         "note"         : note.strip(),
         "window_title" : window_title or "unknown",
         "screenshot"   : screenshot or None,
+        "linked_file"  : linked_file or None,
     }
 
 # ── save entry — main function ───────────────────────────────
@@ -34,7 +37,15 @@ def save_entry(
     if not project_path:
         return False
 
-    entry = build_entry(note, category, screenshot, window_title)
+    # if a file was imported (nmap, subfinder, etc.) in the last
+    # few minutes, auto-link it under this entry — one time only
+    linked_file = None
+    recent = get_recent_import(project_path)
+    if recent:
+        linked_file = recent["path"]
+        mark_import_consumed(project_path)
+
+    entry = build_entry(note, category, screenshot, window_title, linked_file)
 
     _append_to_journal(project_path, entry)
     _append_to_timeline(project_path, entry)
@@ -49,6 +60,7 @@ def _append_to_journal(project_path: Path, entry: dict) -> None:
     note     = entry["note"]
     window   = entry["window_title"]
     shot     = entry["screenshot"]
+    linked   = entry.get("linked_file")
 
     block = f"## {time_str} — {category}\n\n"
 
@@ -60,6 +72,10 @@ def _append_to_journal(project_path: Path, entry: dict) -> None:
     if shot:
         filename = Path(shot).name
         block += f"![screenshot](screenshots/{filename})\n\n"
+
+    if linked:
+        filename = Path(linked).name
+        block += f"📄 [{filename}]({linked})\n\n"
 
     block += "---\n\n"
 
@@ -116,8 +132,7 @@ def category_counts() -> dict[str, int]:
 
     for entry in entries:
         cat = entry.get("category", "Note")
-        if cat in counts:
-            counts[cat] += 1
+        counts[cat] = counts.get(cat, 0) + 1
 
     return counts
 

@@ -1,0 +1,12 @@
+{
+  "name": "minimal",
+  "description": "Bare-bones structure — one recon dump, per-host notes, one findings folder. Good starting point to fork your own.",
+  "folders": [
+    "recon",
+    "hosts",
+    "findings"
+  ],
+  "host_dir": "hosts",
+  "findings_dir": "findings",
+  "finding_template": "# 000 — Finding Title\n\n**Severity:**\n**Asset:**\n\n## Summary\n\n\n## Steps to reproduce\n1.\n\n## Impact\n\n"
+}

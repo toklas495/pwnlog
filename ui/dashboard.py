@@ -11,7 +11,7 @@ from ui.theme import (
 from core.project import (
     list_projects, create_project,
     set_active_project, get_active_project_name,
-    delete_project,
+    delete_project, list_templates, DEFAULT_TEMPLATE,
 )
 from core.logger import (
     get_entries, filter_entries,
@@ -153,6 +153,27 @@ class Dashboard(ctk.CTk):
             font=FONT_BODY(),
             command=self._create_project,
         ).pack(side="right", padx=(6, 0))
+
+        # template picker — collapses to "default" so typing a name + Enter
+        # still works exactly like before; only touch this if you want a
+        # different directory shape (see ~/.pwnlog/templates/*.json)
+        self.template_var = StringVar(value=DEFAULT_TEMPLATE)
+        template_names = list_templates()
+        if len(template_names) > 1:
+            ctk.CTkOptionMenu(
+                self.sidebar,
+                variable=self.template_var,
+                values=template_names,
+                width=140,
+                height=24,
+                corner_radius=6,
+                fg_color=THEME["bg_card"],
+                button_color=THEME["bg_card"],
+                button_hover_color=THEME["border"],
+                text_color=THEME["text_secondary"],
+                dropdown_fg_color=THEME["bg_card"],
+                font=FONT_SMALL(),
+            ).pack(fill="x", padx=14, pady=(6, 0))
 
     # ── filter section ────────────────────────────────────────
     def _build_filter_section(self) -> None:
@@ -401,8 +422,10 @@ class Dashboard(ctk.CTk):
         name = self.new_project_input.get().strip()
         if not name:
             return
+        template = getattr(self, "template_var", None)
+        template = template.get() if template else DEFAULT_TEMPLATE
         try:
-            create_project(name)
+            create_project(name, template=template)
             self.new_project_input.delete(0, "end")
             self._refresh()
         except FileExistsError:

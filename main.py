@@ -1,63 +1,89 @@
+import argparse
 import threading
 import customtkinter as ctk
 from typing import Optional
 
-from ui.theme import apply_window_style
-from ui.dashboard import Dashboard
 from ui.popup import QuickLogPopup
 from core.hotkey import HotkeyListener
-from core.project import init_pwnlog
+from core.project import init_pwnlog, get_active_project_name
 
 
-# ── app controller ───────────────────────────────────────────
-class PwnLog:
+# ── background listener — the default way to run pwnlog ───────
+# no dashboard window, no visible UI at all until you hit the
+# hotkey. manage projects with cli.py instead.
+class PwnLogListener:
 
     def __init__(self) -> None:
-        self.dashboard : Optional[Dashboard]      = None
-        self.popup     : Optional[QuickLogPopup]  = None
-        self.hotkey    : Optional[HotkeyListener] = None
+        self.root   : Optional[ctk.CTk]          = None
+        self.popup  : Optional[QuickLogPopup]    = None
+        self.hotkey : Optional[HotkeyListener]   = None
 
-    # ── boot sequence ─────────────────────────────────────────
     def start(self) -> None:
         init_pwnlog()
-        self._start_dashboard()
+        self._start_hidden_root()
         self._start_hotkey()
-        self.dashboard.mainloop()
 
-    # ── dashboard ─────────────────────────────────────────────
-    def _start_dashboard(self) -> None:
-        self.dashboard = Dashboard()
-        self.dashboard.protocol(
-            "WM_DELETE_WINDOW",
-            self._on_close,
-        )
+        project = get_active_project_name() or "no project"
+        print(f"[pwnlog] listening — Alt+Shift+Z to log  (project: {project})")
+        print("[pwnlog] ctrl+c to stop. use `python cli.py` to manage projects.")
 
-    # ── global hotkey ─────────────────────────────────────────
+        self.root.mainloop()
+
+    def _start_hidden_root(self) -> None:
+        self.root = ctk.CTk()
+        self.root.withdraw()  # no visible window
+
     def _start_hotkey(self) -> None:
-        self.hotkey = HotkeyListener(
-            on_trigger=self._open_popup,
-        )
+        self.hotkey = HotkeyListener(on_trigger=self._open_popup)
         self.hotkey.start()
 
-    # ── open popup — always called from hotkey thread ─────────
     def _open_popup(self) -> None:
         # must schedule on main thread
-        if self.dashboard:
-            self.dashboard.after(0, self._show_popup)
+        self.root.after(0, self._show_popup)
 
-    # ── show popup on main thread ─────────────────────────────
     def _show_popup(self) -> None:
-        # only one popup at a time
         if self.popup and self.popup.winfo_exists():
             self.popup.lift()
             return
+        self.popup = QuickLogPopup(master=self.root)
 
-        self.popup = QuickLogPopup(
-            master   = self.dashboard,
-            on_saved = self.dashboard.on_entry_saved,
-        )
+    def stop(self) -> None:
+        if self.hotkey:
+            self.hotkey.stop()
+        if self.root:
+            self.root.destroy()
 
-    # ── clean shutdown ────────────────────────────────────────
+
+# ── optional visual dashboard — python main.py --dashboard ────
+class PwnLogDashboard:
+
+    def __init__(self) -> None:
+        self.dashboard = None
+        self.popup     = None
+        self.hotkey    = None
+
+    def start(self) -> None:
+        from ui.dashboard import Dashboard
+
+        init_pwnlog()
+        self.dashboard = Dashboard()
+        self.dashboard.protocol("WM_DELETE_WINDOW", self._on_close)
+        self._start_hotkey()
+        self.dashboard.mainloop()
+
+    def _start_hotkey(self) -> None:
+        self.hotkey = HotkeyListener(on_trigger=self._open_popup)
+        self.hotkey.start()
+
+    def _open_popup(self) -> None:
+        self.dashboard.after(0, self._show_popup)
+
+    def _show_popup(self) -> None:
+        if self.popup and self.popup.winfo_exists():
+            self.popup.lift()
+            return
+        self.popup = QuickLogPopup(master=self.dashboard, on_saved=self.dashboard.on_entry_saved)
+
     def _on_close(self) -> None:
         if self.hotkey:
             self.hotkey.stop()
@@ -67,8 +93,17 @@ class PwnLog:
 
 # ── entry point ──────────────────────────────────────────────
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="PwnLog")
+    parser.add_argument(
+        "--dashboard", action="store_true",
+        help="open the visual dashboard instead of running as a background listener",
+    )
+    args = parser.parse_args()
+
+    app = PwnLogDashboard() if args.dashboard else PwnLogListener()
+
     try:
-        app = PwnLog()
         app.start()
     except KeyboardInterrupt:
-        pass
+        if hasattr(app, "stop"):
+            app.stop()
